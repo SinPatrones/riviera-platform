@@ -7,7 +7,7 @@ import { contactInfo } from "../../../infrastructure/data/company.data";
 import type { ContactFormData } from "../../../domain/entities/ContactFormData";
 
 // Public site key — safe to expose in client code
-const RECAPTCHA_SITE_KEY = "6LevxyAnAAAAAPf82aJb1gw718V6CGRH5_kC9l4o";
+const RECAPTCHA_SITE_KEY = "6LfZW5AsAAAAABQVaA4b6sbrmb_EwAy_1WdDWY9k";
 
 // ─── Contact info items ──────────────────────────────────────────────────────
 const contactItems = [
