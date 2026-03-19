@@ -1,7 +1,13 @@
 "use client";
 
+import { useRef, useState } from "react";
+import ReCAPTCHA from "react-google-recaptcha";
 import { useInView } from "../../hooks/useInView";
 import { contactInfo } from "../../../infrastructure/data/company.data";
+import type { ContactFormData } from "../../../domain/entities/ContactFormData";
+
+// Public site key — safe to expose in client code
+const RECAPTCHA_SITE_KEY = "6LevxyAnAAAAAPf82aJb1gw718V6CGRH5_kC9l4o";
 
 // ─── Contact info items ──────────────────────────────────────────────────────
 const contactItems = [
@@ -31,8 +37,73 @@ const contactItems = [
   },
 ];
 
+// ─── Form submission status ───────────────────────────────────────────────────
+type FormStatus = "idle" | "loading" | "success" | "error";
+
 export default function ContactSection() {
   const { ref, isInView } = useInView();
+  const recaptchaRef = useRef<ReCAPTCHA>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const [status, setStatus] = useState<FormStatus>("idle");
+  const [errorMessage, setErrorMessage] = useState<string>("");
+
+  // ── Form submit handler ────────────────────────────────────────────────────
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setStatus("loading");
+    setErrorMessage("");
+
+    // Collect reCAPTCHA token
+    const recaptchaToken = recaptchaRef.current?.getValue() ?? "";
+    if (!recaptchaToken) {
+      setStatus("error");
+      setErrorMessage("Por favor completa el reCAPTCHA antes de enviar.");
+      return;
+    }
+
+    // Collect form fields via FormData
+    const formData = new FormData(e.currentTarget);
+    const payload: ContactFormData = {
+      nombre: (formData.get("nombre") as string).trim(),
+      empresa: (formData.get("empresa") as string).trim(),
+      email: (formData.get("email") as string).trim(),
+      servicio: (formData.get("servicio") as string).trim(),
+      mensaje: (formData.get("mensaje") as string).trim(),
+      recaptchaToken,
+    };
+
+    try {
+      const res = await fetch("/api/contacto", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const json = (await res.json()) as { message: string };
+
+      if (!res.ok) {
+        throw new Error(json.message ?? "Error desconocido.");
+      }
+
+      setStatus("success");
+      formRef.current?.reset();
+      recaptchaRef.current?.reset();
+    } catch (err) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Ocurrió un error. Inténtalo de nuevo.";
+      setStatus("error");
+      setErrorMessage(msg);
+      recaptchaRef.current?.reset();
+    }
+  };
+
+  const handleRetry = () => {
+    setStatus("idle");
+    setErrorMessage("");
+  };
 
   return (
     <section
@@ -57,7 +128,8 @@ export default function ContactSection() {
         className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
       >
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-start">
-          {/* ── Left: info ──────────────────────────────────────────────── */}
+
+          {/* ── Left: contact info ──────────────────────────────────────── */}
           <div
             className={`transition-all duration-700 ${
               isInView
@@ -82,7 +154,6 @@ export default function ContactSection() {
               compromiso.
             </p>
 
-            {/* Contact items */}
             <ul className="space-y-5">
               {contactItems.map((item) => (
                 <li key={item.label}>
@@ -97,13 +168,9 @@ export default function ContactSection() {
                         viewBox="0 0 24 24"
                         strokeWidth={1.5}
                         stroke="currentColor"
-                        className="w-4.5 h-4.5 text-gold-400 w-5 h-5"
+                        className="w-5 h-5 text-gold-400"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d={item.icon}
-                        />
+                        <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
                       </svg>
                     </div>
                     <div>
@@ -120,7 +187,7 @@ export default function ContactSection() {
             </ul>
           </div>
 
-          {/* ── Right: contact form ──────────────────────────────────────── */}
+          {/* ── Right: form ─────────────────────────────────────────────── */}
           <div
             className={`transition-all duration-700 delay-200 ${
               isInView
@@ -129,131 +196,198 @@ export default function ContactSection() {
             }`}
           >
             <div className="bg-navy-800/60 backdrop-blur-sm border border-navy-700/50 rounded-2xl p-6 md:p-8">
-              <h3 className="text-lg font-heading font-semibold text-white mb-6">
-                Envíanos un mensaje
-              </h3>
 
-              {/* NOTE: Form action/handler should be wired to a backend or service */}
-              <form className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label
-                      htmlFor="nombre"
-                      className="block text-xs text-navy-300 uppercase tracking-wider mb-1.5"
+              {/* ── Success state ──────────────────────────────────────── */}
+              {status === "success" ? (
+                <div className="flex flex-col items-center text-center py-8 gap-5">
+                  <div className="w-16 h-16 rounded-full bg-gold-500/10 border border-gold-500/30 flex items-center justify-center">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={2}
+                      stroke="currentColor"
+                      className="w-8 h-8 text-gold-400"
                     >
-                      Nombre
-                    </label>
-                    <input
-                      type="text"
-                      id="nombre"
-                      name="nombre"
-                      placeholder="Tu nombre"
-                      className="w-full px-4 py-3 bg-navy-900/50 border border-navy-600 focus:border-gold-500 text-white placeholder-navy-500 rounded-xl text-sm outline-none transition-colors duration-200"
-                    />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
                   </div>
                   <div>
-                    <label
-                      htmlFor="empresa"
-                      className="block text-xs text-navy-300 uppercase tracking-wider mb-1.5"
-                    >
-                      Empresa
-                    </label>
-                    <input
-                      type="text"
-                      id="empresa"
-                      name="empresa"
-                      placeholder="Tu empresa"
-                      className="w-full px-4 py-3 bg-navy-900/50 border border-navy-600 focus:border-gold-500 text-white placeholder-navy-500 rounded-xl text-sm outline-none transition-colors duration-200"
-                    />
+                    <h3 className="text-xl font-heading font-bold text-white mb-2">
+                      ¡Mensaje enviado!
+                    </h3>
+                    <p className="text-navy-300 text-sm leading-relaxed max-w-xs mx-auto">
+                      Recibimos tu consulta. Nos pondremos en contacto contigo
+                      a la brevedad posible.
+                    </p>
                   </div>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="email"
-                    className="block text-xs text-navy-300 uppercase tracking-wider mb-1.5"
+                  <button
+                    onClick={handleRetry}
+                    className="mt-2 text-xs text-navy-400 hover:text-gold-400 underline underline-offset-2 transition-colors"
                   >
-                    Correo electrónico
-                  </label>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    placeholder="tu@correo.com"
-                    className="w-full px-4 py-3 bg-navy-900/50 border border-navy-600 focus:border-gold-500 text-white placeholder-navy-500 rounded-xl text-sm outline-none transition-colors duration-200"
-                  />
+                    Enviar otro mensaje
+                  </button>
                 </div>
+              ) : (
+                <>
+                  <h3 className="text-lg font-heading font-semibold text-white mb-6">
+                    Envíanos un mensaje
+                  </h3>
 
-                <div>
-                  <label
-                    htmlFor="servicio"
-                    className="block text-xs text-navy-300 uppercase tracking-wider mb-1.5"
-                  >
-                    Servicio de interés
-                  </label>
-                  <select
-                    id="servicio"
-                    name="servicio"
-                    className="w-full px-4 py-3 bg-navy-900/50 border border-navy-600 focus:border-gold-500 text-white rounded-xl text-sm outline-none transition-colors duration-200 appearance-none"
-                  >
-                    <option value="" className="bg-navy-900">
-                      Selecciona un servicio
-                    </option>
-                    <option value="tributaria" className="bg-navy-900">
-                      Asesoría Tributaria
-                    </option>
-                    <option value="laboral" className="bg-navy-900">
-                      Asesoría Laboral
-                    </option>
-                    <option value="constitucion" className="bg-navy-900">
-                      Constitución de Empresas
-                    </option>
-                    <option value="planillas" className="bg-navy-900">
-                      Administración de Planillas
-                    </option>
-                    <option value="seleccion" className="bg-navy-900">
-                      Selección de Personal
-                    </option>
-                    <option value="auditoria-contable" className="bg-navy-900">
-                      Auditoría Contable y Financiera
-                    </option>
-                    <option value="auditoria-laboral" className="bg-navy-900">
-                      Auditoría Laboral
-                    </option>
-                    <option value="juridica" className="bg-navy-900">
-                      Asesoría Jurídica
-                    </option>
-                    <option value="otros" className="bg-navy-900">
-                      Otros
-                    </option>
-                  </select>
-                </div>
+                  {/* ── Error banner ─────────────────────────────────── */}
+                  {status === "error" && (
+                    <div className="flex items-start gap-3 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 mb-5">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+                        />
+                      </svg>
+                      <p className="text-red-300 text-sm">{errorMessage}</p>
+                    </div>
+                  )}
 
-                <div>
-                  <label
-                    htmlFor="mensaje"
-                    className="block text-xs text-navy-300 uppercase tracking-wider mb-1.5"
-                  >
-                    Mensaje
-                  </label>
-                  <textarea
-                    id="mensaje"
-                    name="mensaje"
-                    rows={4}
-                    placeholder="Cuéntanos sobre tu empresa y cómo podemos ayudarte..."
-                    className="w-full px-4 py-3 bg-navy-900/50 border border-navy-600 focus:border-gold-500 text-white placeholder-navy-500 rounded-xl text-sm outline-none transition-colors duration-200 resize-none"
-                  />
-                </div>
+                  {/* ── Form ─────────────────────────────────────────── */}
+                  <form ref={formRef} onSubmit={handleSubmit} className="space-y-4" noValidate>
 
-                <button
-                  type="submit"
-                  className="w-full py-3.5 bg-gold-500 hover:bg-gold-400 text-navy-950 font-semibold rounded-xl transition-all duration-200 hover:shadow-lg hover:shadow-gold-500/30 hover:-translate-y-0.5 active:translate-y-0 text-sm"
-                >
-                  Enviar mensaje
-                </button>
-              </form>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="nombre" className="block text-xs text-navy-300 uppercase tracking-wider mb-1.5">
+                          Nombre <span className="text-gold-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          id="nombre"
+                          name="nombre"
+                          placeholder="Tu nombre"
+                          required
+                          disabled={status === "loading"}
+                          className="w-full px-4 py-3 bg-navy-900/50 border border-navy-600 focus:border-gold-500 text-white placeholder-navy-500 rounded-xl text-sm outline-none transition-colors duration-200 disabled:opacity-50"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="empresa" className="block text-xs text-navy-300 uppercase tracking-wider mb-1.5">
+                          Empresa
+                        </label>
+                        <input
+                          type="text"
+                          id="empresa"
+                          name="empresa"
+                          placeholder="Tu empresa"
+                          disabled={status === "loading"}
+                          className="w-full px-4 py-3 bg-navy-900/50 border border-navy-600 focus:border-gold-500 text-white placeholder-navy-500 rounded-xl text-sm outline-none transition-colors duration-200 disabled:opacity-50"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="email" className="block text-xs text-navy-300 uppercase tracking-wider mb-1.5">
+                        Correo electrónico <span className="text-gold-500">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        placeholder="tu@correo.com"
+                        required
+                        disabled={status === "loading"}
+                        className="w-full px-4 py-3 bg-navy-900/50 border border-navy-600 focus:border-gold-500 text-white placeholder-navy-500 rounded-xl text-sm outline-none transition-colors duration-200 disabled:opacity-50"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="servicio" className="block text-xs text-navy-300 uppercase tracking-wider mb-1.5">
+                        Servicio de interés
+                      </label>
+                      <select
+                        id="servicio"
+                        name="servicio"
+                        disabled={status === "loading"}
+                        className="w-full px-4 py-3 bg-navy-900/50 border border-navy-600 focus:border-gold-500 text-white rounded-xl text-sm outline-none transition-colors duration-200 appearance-none disabled:opacity-50"
+                      >
+                        <option value="" className="bg-navy-900">Selecciona un servicio</option>
+                        <option value="tributaria" className="bg-navy-900">Asesoría Tributaria</option>
+                        <option value="laboral" className="bg-navy-900">Asesoría Laboral</option>
+                        <option value="constitucion" className="bg-navy-900">Constitución de Empresas</option>
+                        <option value="planillas" className="bg-navy-900">Administración de Planillas</option>
+                        <option value="seleccion" className="bg-navy-900">Selección de Personal</option>
+                        <option value="auditoria-contable" className="bg-navy-900">Auditoría Contable y Financiera</option>
+                        <option value="auditoria-laboral" className="bg-navy-900">Auditoría Laboral</option>
+                        <option value="juridica" className="bg-navy-900">Asesoría Jurídica</option>
+                        <option value="otros" className="bg-navy-900">Otros</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label htmlFor="mensaje" className="block text-xs text-navy-300 uppercase tracking-wider mb-1.5">
+                        Mensaje <span className="text-gold-500">*</span>
+                      </label>
+                      <textarea
+                        id="mensaje"
+                        name="mensaje"
+                        rows={4}
+                        required
+                        disabled={status === "loading"}
+                        placeholder="Cuéntanos sobre tu empresa y cómo podemos ayudarte..."
+                        className="w-full px-4 py-3 bg-navy-900/50 border border-navy-600 focus:border-gold-500 text-white placeholder-navy-500 rounded-xl text-sm outline-none transition-colors duration-200 resize-none disabled:opacity-50"
+                      />
+                    </div>
+
+                    {/* reCAPTCHA widget */}
+                    <div className="flex justify-center">
+                      <ReCAPTCHA
+                        ref={recaptchaRef}
+                        sitekey={RECAPTCHA_SITE_KEY}
+                        theme="dark"
+                      />
+                    </div>
+
+                    {/* Submit button */}
+                    <button
+                      type="submit"
+                      disabled={status === "loading"}
+                      className="w-full py-3.5 bg-gold-500 hover:bg-gold-400 text-navy-950 font-semibold rounded-xl transition-all duration-200 hover:shadow-lg hover:shadow-gold-500/30 hover:-translate-y-0.5 active:translate-y-0 text-sm disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none flex items-center justify-center gap-2"
+                    >
+                      {status === "loading" ? (
+                        <>
+                          <svg
+                            className="animate-spin w-4 h-4"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12" cy="12" r="10"
+                              stroke="currentColor" strokeWidth="4"
+                            />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8v8H4z"
+                            />
+                          </svg>
+                          Enviando...
+                        </>
+                      ) : (
+                        "Enviar mensaje"
+                      )}
+                    </button>
+
+                  </form>
+                </>
+              )}
             </div>
           </div>
+
         </div>
       </div>
     </section>
