@@ -68,6 +68,7 @@ export default function ContactSection() {
       nombre: (formData.get("nombre") as string).trim(),
       empresa: (formData.get("empresa") as string).trim(),
       email: (formData.get("email") as string).trim(),
+      telefono: (formData.get("telefono") as string).trim(),
       servicio: (formData.get("servicio") as string).trim(),
       mensaje: (formData.get("mensaje") as string).trim(),
       recaptchaToken,
@@ -288,19 +289,34 @@ export default function ContactSection() {
                       </div>
                     </div>
 
-                    <div>
-                      <label htmlFor="email" className="block text-xs text-navy-300 uppercase tracking-wider mb-1.5">
-                        Correo electrónico <span className="text-gold-500">*</span>
-                      </label>
-                      <input
-                        type="email"
-                        id="email"
-                        name="email"
-                        placeholder="tu@correo.com"
-                        required
-                        disabled={status === "loading"}
-                        className="w-full px-4 py-3 bg-navy-900/50 border border-navy-600 focus:border-gold-500 text-white placeholder-navy-500 rounded-xl text-sm outline-none transition-colors duration-200 disabled:opacity-50"
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="email" className="block text-xs text-navy-300 uppercase tracking-wider mb-1.5">
+                          Correo electrónico <span className="text-gold-500">*</span>
+                        </label>
+                        <input
+                          type="email"
+                          id="email"
+                          name="email"
+                          placeholder="tu@correo.com"
+                          required
+                          disabled={status === "loading"}
+                          className="w-full px-4 py-3 bg-navy-900/50 border border-navy-600 focus:border-gold-500 text-white placeholder-navy-500 rounded-xl text-sm outline-none transition-colors duration-200 disabled:opacity-50"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="telefono" className="block text-xs text-navy-300 uppercase tracking-wider mb-1.5">
+                          Teléfono / WhatsApp
+                        </label>
+                        <input
+                          type="tel"
+                          id="telefono"
+                          name="telefono"
+                          placeholder="+51 999 999 999"
+                          disabled={status === "loading"}
+                          className="w-full px-4 py-3 bg-navy-900/50 border border-navy-600 focus:border-gold-500 text-white placeholder-navy-500 rounded-xl text-sm outline-none transition-colors duration-200 disabled:opacity-50"
+                        />
+                      </div>
                     </div>
 
                     <div>

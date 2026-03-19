@@ -177,9 +177,9 @@ export function buildConfirmationEmail(data: ContactFormData): {
               <!-- Social / contact note -->
               <p style="margin:0;color:#94A3B8;font-size:12px;line-height:1.7;text-align:center;">
                 Si tienes alguna consulta urgente, puedes escribirnos directamente a
-                <a href="mailto:hola@miempresa360.com"
+                <a href="mailto:hernan.riveralive@gmail.com"
                    style="color:#2E4D74;text-decoration:none;font-weight:600;">
-                  hola@miempresa360.com
+                  hernan.riveralive@gmail.com
                 </a>
               </p>
 

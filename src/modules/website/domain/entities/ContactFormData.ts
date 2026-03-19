@@ -5,6 +5,7 @@ export interface ContactFormData {
   nombre: string;
   empresa: string;
   email: string;
+  telefono: string;
   servicio: string;
   mensaje: string;
   recaptchaToken: string;

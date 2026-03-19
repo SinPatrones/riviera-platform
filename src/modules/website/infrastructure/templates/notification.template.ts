@@ -22,6 +22,32 @@ function escapeHtml(text: string): string {
     .replace(/'/g, "&#39;");
 }
 
+/**
+ * Returns a WhatsApp wa.me URL if the phone number is Peruvian (9 digits,
+ * starts with 51, or starts with +51). Returns null for any other format.
+ *
+ * Examples accepted:
+ *   "987654321"   → https://wa.me/51987654321
+ *   "51987654321" → https://wa.me/51987654321
+ *   "+51987654321"→ https://wa.me/51987654321
+ */
+function resolveWhatsApp(raw: string): string | null {
+  // Strip everything that is not a digit
+  const digits = raw.replace(/\D/g, "");
+
+  if (digits.length === 9) {
+    // Plain 9-digit Peruvian mobile number
+    return `https://wa.me/51${digits}`;
+  }
+
+  if (digits.length === 11 && digits.startsWith("51")) {
+    // Already has country code: 51 + 9 digits
+    return `https://wa.me/${digits}`;
+  }
+
+  return null;
+}
+
 // ─── Notification email (company receives) ────────────────────────────────────
 // Elegant branded HTML email indicating it came from the landing page.
 
@@ -149,6 +175,56 @@ export function buildNotificationEmail(data: ContactFormData): {
                   </td>
                 </tr>
                 <tr><td colspan="2" style="height:20px;"></td></tr>
+
+                <!-- Teléfono / WhatsApp -->
+                ${(() => {
+                  if (!data.telefono) return `
+                <tr>
+                  <td colspan="2" style="padding-bottom:20px;border-bottom:1px solid #EAF0F8;">
+                    <p style="margin:0 0 5px;color:#94A3B8;font-size:10px;font-weight:700;
+                               letter-spacing:2.5px;text-transform:uppercase;">
+                      Teléfono / WhatsApp
+                    </p>
+                    <em style="color:#94A3B8;font-size:14px;">No proporcionado</em>
+                  </td>
+                </tr>
+                <tr><td colspan="2" style="height:20px;"></td></tr>`;
+
+                  const waUrl = resolveWhatsApp(data.telefono);
+                  return `
+                <tr>
+                  <td colspan="2" style="padding-bottom:20px;border-bottom:1px solid #EAF0F8;">
+                    <p style="margin:0 0 8px;color:#94A3B8;font-size:10px;font-weight:700;
+                               letter-spacing:2.5px;text-transform:uppercase;">
+                      Teléfono / WhatsApp
+                    </p>
+                    <table cellpadding="0" cellspacing="0" role="presentation">
+                      <tr>
+                        <td style="padding-right:12px;">
+                          <a href="tel:${escapeHtml(data.telefono)}"
+                             style="color:#2E4D74;font-size:14px;text-decoration:none;font-weight:600;">
+                            ${escapeHtml(data.telefono)}
+                          </a>
+                        </td>
+                        ${waUrl ? `
+                        <td>
+                          <a href="${waUrl}" target="_blank"
+                             style="display:inline-flex;align-items:center;gap:6px;
+                                    background:#25D366;color:#ffffff;font-size:12px;
+                                    font-weight:700;padding:6px 14px;border-radius:20px;
+                                    text-decoration:none;letter-spacing:0.3px;">
+                            <img src="https://riviera-platform.vercel.app/whatsapp.svg"
+                                 width="14" height="14" alt="WhatsApp"
+                                 style="vertical-align:middle;" />
+                            Abrir WhatsApp
+                          </a>
+                        </td>` : ""}
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr><td colspan="2" style="height:20px;"></td></tr>`;
+                })()}
 
                 <!-- Servicio de interés -->
                 <tr>
